@@ -10,16 +10,14 @@ from utilitys import *
 app = Flask(__name__)
 CORS(app)                            
 
-# Variabel global buat state bot (mirip variabel di main.py asli)
 running = False
 current_channel = None
 current_post = None
 api_instance = None
 proxy_manager = None
 
-# -------------------- FUNGSI ASLI (TIDAK DIUBAH LOGIKA) --------------------
+# -------------------- FUNGSI ASLI --------------------
 def view_updater():
-    """Sama persis dengan view_updater() di main.py"""
     while running:
         try:
             Api.views(api_instance)
@@ -28,7 +26,6 @@ def view_updater():
             logger(e)
 
 def send_views():
-    """Sama persis dengan start() di main.py, hanya menggunakan while running"""
     while running:
         threads = []
         proxy_manager.init()
@@ -52,9 +49,9 @@ def status():
         'running': running,
         'channel': current_channel,
         'post': current_post,
-        'views': Api.real_views,                                      # ✅ PAKAI INI
-        'token_errors': api_instance.token_errors if api_instance else 0,
-        'proxy_errors': api_instance.proxy_errors if api_instance else 0,
+        'views': Api.real_views,
+        'token_errors': Api.token_errors,
+        'proxy_errors': Api.proxy_errors,
         'active_threads': active_count()
     })
 
@@ -72,6 +69,12 @@ def start_bot():
 
     current_channel = channel
     current_post = post
+
+    # Reset counter
+    Api.real_views = 0
+    Api.token_errors = 0
+    Api.proxy_errors = 0
+    Api.success_views = 0
 
     http_src, socks4_src, socks5_src = config_loader()
     proxy_manager = Proxy(
@@ -92,6 +95,13 @@ def stop_bot():
     if not running:
         return jsonify({'message': 'Bot belum berjalan.'}), 400
     running = False
+    
+    # Reset counter
+    Api.real_views = 0
+    Api.token_errors = 0
+    Api.proxy_errors = 0
+    Api.success_views = 0
+    
     return jsonify({'message': 'Bot dihentikan.'})
 
 if __name__ == '__main__':
