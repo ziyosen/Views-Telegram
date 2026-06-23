@@ -16,7 +16,6 @@ current_channel = None
 current_post = None
 api_instance = None
 proxy_manager = None
-view_count = 0
 
 # -------------------- FUNGSI ASLI (TIDAK DIUBAH LOGIKA) --------------------
 def view_updater():
@@ -30,7 +29,6 @@ def view_updater():
 
 def send_views():
     """Sama persis dengan start() di main.py, hanya menggunakan while running"""
-    global view_count
     while running:
         threads = []
         proxy_manager.init()
@@ -46,7 +44,6 @@ def send_views():
             thread.start()
         for t in threads:
             t.join()
-        view_count += len(threads)
 
 # -------------------- ENDPOINT API --------------------
 @app.route('/status')
@@ -55,7 +52,7 @@ def status():
         'running': running,
         'channel': current_channel,
         'post': current_post,
-        'views': view_count,
+        'views': api_instance.success_views if api_instance else 0,
         'token_errors': api_instance.token_errors if api_instance else 0,
         'proxy_errors': api_instance.proxy_errors if api_instance else 0,
         'active_threads': active_count()
@@ -63,7 +60,7 @@ def status():
 
 @app.route('/start', methods=['POST'])
 def start_bot():
-    global running, current_channel, current_post, api_instance, proxy_manager, view_count
+    global running, current_channel, current_post, api_instance, proxy_manager
     if running:
         return jsonify({'message': 'Bot sudah berjalan.'}), 400
 
@@ -75,7 +72,6 @@ def start_bot():
 
     current_channel = channel
     current_post = post
-    view_count = 0
 
     http_src, socks4_src, socks5_src = config_loader()
     proxy_manager = Proxy(
