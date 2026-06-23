@@ -1,12 +1,14 @@
 # app.py
 from flask import Flask, request, jsonify
+from flask_cors import CORS          
 from threading import Thread, active_count
 from time import sleep as swait
 from auto_proxy import Proxy
 from telegram import Api
-from utilitys import *      # pastikan utilitys.py ada, isi LOGO, logger, THREADS, config_loader, etc.
+from utilitys import *
 
 app = Flask(__name__)
+CORS(app)                            
 
 # Variabel global buat state bot (mirip variabel di main.py asli)
 running = False
@@ -72,7 +74,6 @@ def start_bot():
     current_post = post
     view_count = 0
 
-    # config_loader() membaca auto/http.txt dll. (sama persis dengan asli)
     http_src, socks4_src, socks5_src = config_loader()
     proxy_manager = Proxy(
         http_sources=http_src,
@@ -95,5 +96,5 @@ def stop_bot():
     return jsonify({'message': 'Bot dihentikan.'})
 
 if __name__ == '__main__':
-    print(LOGO)  # biar keren pas start
+    print(LOGO)
     app.run(host='0.0.0.0', port=10000)
