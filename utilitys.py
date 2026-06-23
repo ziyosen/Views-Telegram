@@ -16,8 +16,8 @@ __     ___                     _____    _
    \_/  |_|\___| \_/\_/ |___/   |_|\___|_|\___|\__, |_|  \__,_|_| |_| |_|
                                                |___/
                                                     ~ Telegram Auto Views V1 ~
-                                                    ~ Dev: eRo HACK ~
-                                                    ~ Ch: @EroHack0 ~
+                                                    ~ Dev: Benxx ~
+                                                    ~ Tele: @Bleszh ~
 '''
 
 error_file = open('errors.txt', 'a+', encoding='utf-8')
