@@ -2,4 +2,5 @@ aiohttp
 aiohttp_socks
 fake_useragent
 flask
+flask-cors
 requests
