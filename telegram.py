@@ -4,6 +4,8 @@ from re import search
 
 class Api():
     real_views, proxy_errors, token_errors = 0, 0, 0
+    success_views = 0  
+    
     def __init__(self, channel, post) -> None:
         self.url = 'https://t.me/'
         self.channel, self.post = channel, post
@@ -61,7 +63,10 @@ class Api():
                 timeout=15
             )
             
-        except AttributeError: Api.token_errors += 1
-        except requests.exceptions.RequestException: Api.proxy_errors += 1
-    
-
+            # SUKSES → tambah counter
+            Api.success_views += 1
+            
+        except AttributeError:
+            Api.token_errors += 1
+        except requests.exceptions.RequestException:
+            Api.proxy_errors += 1
