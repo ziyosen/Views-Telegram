@@ -52,7 +52,7 @@ def status():
         'running': running,
         'channel': current_channel,
         'post': current_post,
-        'views': api_instance.success_views if api_instance else 0,
+        'views': Api.real_views,                                      # ✅ PAKAI INI
         'token_errors': api_instance.token_errors if api_instance else 0,
         'proxy_errors': api_instance.proxy_errors if api_instance else 0,
         'active_threads': active_count()
