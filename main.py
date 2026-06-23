@@ -11,29 +11,33 @@ import uuid
 app = Flask(__name__)
 CORS(app)                            
 
-# Dictionary untuk menyimpan state per session
+# Dictionary menyimpan state per session
 sessions = {}
 
 # -------------------- FUNGSI PER SESSION --------------------
 def view_updater(session_id):
     session = sessions[session_id]
+    api = session['api_instance']
     while session['running']:
         try:
-            Api.views(session['api_instance'])
+            api.views()                    # ✅ instance method
             swait(2)
         except Exception as e:
             logger(e)
 
 def send_views(session_id):
     session = sessions[session_id]
+    api = session['api_instance']
+    proxy_mgr = session['proxy_manager']
+    
     while session['running']:
         threads = []
-        session['proxy_manager'].init()
-        for proxy_type, proxy in session['proxy_manager'].proxies:
+        proxy_mgr.init()
+        for proxy_type, proxy in proxy_mgr.proxies:
             while active_count() > THREADS:
                 swait(0.05)
             thread = Thread(
-                target=session['api_instance'].send_view,
+                target=api.send_view,
                 args=(proxy, proxy_type)
             )
             thread.daemon = True
@@ -45,7 +49,6 @@ def send_views(session_id):
 # -------------------- ENDPOINT API --------------------
 @app.route('/create_session', methods=['POST'])
 def create_session():
-    """Buat session baru, return session_id"""
     session_id = str(uuid.uuid4())[:8]
     sessions[session_id] = {
         'running': False,
@@ -53,9 +56,6 @@ def create_session():
         'post': None,
         'api_instance': None,
         'proxy_manager': None,
-        'views': 0,
-        'token_errors': 0,
-        'proxy_errors': 0,
     }
     return jsonify({'session_id': session_id})
 
@@ -73,6 +73,7 @@ def status():
         'channel': session['channel'],
         'post': session['post'],
         'views': api.real_views if api else 0,
+        'success_views': api.success_views if api else 0,
         'token_errors': api.token_errors if api else 0,
         'proxy_errors': api.proxy_errors if api else 0,
         'active_threads': active_count()
@@ -92,16 +93,10 @@ def start_bot():
     
     session = sessions[session_id]
     if session['running']:
-        return jsonify({'message': 'Bot sudah berjalan.'}), 400
+        return jsonify({'message': 'Bot sudah berjalan di session ini.'}), 400
 
     session['channel'] = channel
     session['post'] = post
-
-    # Reset counter per session
-    Api.real_views = 0
-    Api.token_errors = 0
-    Api.proxy_errors = 0
-    Api.success_views = 0
 
     http_src, socks4_src, socks5_src = config_loader()
     session['proxy_manager'] = Proxy(
@@ -114,6 +109,7 @@ def start_bot():
     session['running'] = True
     Thread(target=view_updater, args=(session_id,), daemon=True).start()
     Thread(target=send_views, args=(session_id,), daemon=True).start()
+    
     return jsonify({'message': f'Bot dimulai untuk @{channel}/{post}'})
 
 @app.route('/stop', methods=['POST'])
@@ -129,18 +125,6 @@ def stop_bot():
         return jsonify({'message': 'Bot belum berjalan.'}), 400
     
     session['running'] = False
-    
-    # Reset counter
-    if session['api_instance']:
-        session['api_instance'].real_views = 0
-        session['api_instance'].token_errors = 0
-        session['api_instance'].proxy_errors = 0
-        session['api_instance'].success_views = 0
-    Api.real_views = 0
-    Api.token_errors = 0
-    Api.proxy_errors = 0
-    Api.success_views = 0
-    
     return jsonify({'message': 'Bot dihentikan.'})
 
 if __name__ == '__main__':
