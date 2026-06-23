@@ -55,7 +55,10 @@ def status():
         'running': running,
         'channel': current_channel,
         'post': current_post,
-        'views': view_count
+        'views': view_count,
+        'token_errors': api_instance.token_errors if api_instance else 0,
+        'proxy_errors': api_instance.proxy_errors if api_instance else 0,
+        'active_threads': active_count()
     })
 
 @app.route('/start', methods=['POST'])
@@ -97,4 +100,6 @@ def stop_bot():
 
 if __name__ == '__main__':
     print(LOGO)
-    app.run(host='0.0.0.0', port=10000)
+    import os
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
