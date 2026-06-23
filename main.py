@@ -6,34 +6,34 @@ from time import sleep as swait
 from auto_proxy import Proxy
 from telegram import Api
 from utilitys import *
+import uuid
 
 app = Flask(__name__)
 CORS(app)                            
 
-running = False
-current_channel = None
-current_post = None
-api_instance = None
-proxy_manager = None
+# Dictionary untuk menyimpan state per session
+sessions = {}
 
-# -------------------- FUNGSI ASLI --------------------
-def view_updater():
-    while running:
+# -------------------- FUNGSI PER SESSION --------------------
+def view_updater(session_id):
+    session = sessions[session_id]
+    while session['running']:
         try:
-            Api.views(api_instance)
+            Api.views(session['api_instance'])
             swait(2)
         except Exception as e:
             logger(e)
 
-def send_views():
-    while running:
+def send_views(session_id):
+    session = sessions[session_id]
+    while session['running']:
         threads = []
-        proxy_manager.init()
-        for proxy_type, proxy in proxy_manager.proxies:
+        session['proxy_manager'].init()
+        for proxy_type, proxy in session['proxy_manager'].proxies:
             while active_count() > THREADS:
                 swait(0.05)
             thread = Thread(
-                target=api_instance.send_view,
+                target=session['api_instance'].send_view,
                 args=(proxy, proxy_type)
             )
             thread.daemon = True
@@ -43,60 +43,99 @@ def send_views():
             t.join()
 
 # -------------------- ENDPOINT API --------------------
+@app.route('/create_session', methods=['POST'])
+def create_session():
+    """Buat session baru, return session_id"""
+    session_id = str(uuid.uuid4())[:8]
+    sessions[session_id] = {
+        'running': False,
+        'channel': None,
+        'post': None,
+        'api_instance': None,
+        'proxy_manager': None,
+        'views': 0,
+        'token_errors': 0,
+        'proxy_errors': 0,
+    }
+    return jsonify({'session_id': session_id})
+
 @app.route('/status')
 def status():
+    session_id = request.args.get('session_id')
+    if not session_id or session_id not in sessions:
+        return jsonify({'error': 'Session tidak valid.'}), 400
+    
+    session = sessions[session_id]
+    api = session['api_instance']
+    
     return jsonify({
-        'running': running,
-        'channel': current_channel,
-        'post': current_post,
-        'views': Api.real_views,
-        'token_errors': Api.token_errors,
-        'proxy_errors': Api.proxy_errors,
+        'running': session['running'],
+        'channel': session['channel'],
+        'post': session['post'],
+        'views': api.real_views if api else 0,
+        'token_errors': api.token_errors if api else 0,
+        'proxy_errors': api.proxy_errors if api else 0,
         'active_threads': active_count()
     })
 
 @app.route('/start', methods=['POST'])
 def start_bot():
-    global running, current_channel, current_post, api_instance, proxy_manager
-    if running:
-        return jsonify({'message': 'Bot sudah berjalan.'}), 400
-
     data = request.get_json()
+    session_id = data.get('session_id')
     channel = data.get('channel')
     post = data.get('post')
+    
+    if not session_id or session_id not in sessions:
+        return jsonify({'message': 'Session tidak valid.'}), 400
     if not channel or not post:
         return jsonify({'message': 'Channel dan post diperlukan.'}), 400
+    
+    session = sessions[session_id]
+    if session['running']:
+        return jsonify({'message': 'Bot sudah berjalan.'}), 400
 
-    current_channel = channel
-    current_post = post
+    session['channel'] = channel
+    session['post'] = post
 
-    # Reset counter
+    # Reset counter per session
     Api.real_views = 0
     Api.token_errors = 0
     Api.proxy_errors = 0
     Api.success_views = 0
 
     http_src, socks4_src, socks5_src = config_loader()
-    proxy_manager = Proxy(
+    session['proxy_manager'] = Proxy(
         http_sources=http_src,
         socks4_sources=socks4_src,
         socks5_sources=socks5_src
     )
-    api_instance = Api(channel=channel, post=post)
+    session['api_instance'] = Api(channel=channel, post=post)
 
-    running = True
-    Thread(target=view_updater, daemon=True).start()
-    Thread(target=send_views, daemon=True).start()
+    session['running'] = True
+    Thread(target=view_updater, args=(session_id,), daemon=True).start()
+    Thread(target=send_views, args=(session_id,), daemon=True).start()
     return jsonify({'message': f'Bot dimulai untuk @{channel}/{post}'})
 
 @app.route('/stop', methods=['POST'])
 def stop_bot():
-    global running
-    if not running:
+    data = request.get_json()
+    session_id = data.get('session_id')
+    
+    if not session_id or session_id not in sessions:
+        return jsonify({'message': 'Session tidak valid.'}), 400
+    
+    session = sessions[session_id]
+    if not session['running']:
         return jsonify({'message': 'Bot belum berjalan.'}), 400
-    running = False
+    
+    session['running'] = False
     
     # Reset counter
+    if session['api_instance']:
+        session['api_instance'].real_views = 0
+        session['api_instance'].token_errors = 0
+        session['api_instance'].proxy_errors = 0
+        session['api_instance'].success_views = 0
     Api.real_views = 0
     Api.token_errors = 0
     Api.proxy_errors = 0
