@@ -107,6 +107,7 @@
       border-radius: 50%;
       background: #cbd5e1;
       flex-shrink: 0;
+      transition: background 0.3s, box-shadow 0.3s;
     }
 
     .status-dot.active {
@@ -198,6 +199,7 @@
       box-shadow: var(--shadow);
       border: 1px solid var(--border);
       text-align: center;
+      transition: transform 0.2s;
     }
 
     .stat-label {
@@ -214,6 +216,7 @@
       font-weight: 700;
       letter-spacing: -0.02em;
       color: var(--text);
+      transition: all 0.3s ease;
     }
 
     /* Footer */
@@ -320,7 +323,7 @@
         @Bleszh
       </a>
       <span class="divider"></span>
-      <span>www.zeithhub.xinquins.dpdns.org</span>
+      <span>www.zeinthhub.xinquins.dpdns.org</span>
     </div>
   </div>
 
@@ -341,6 +344,25 @@
     const activeThreadsEl = document.getElementById('activeThreads');
 
     let polling = null;
+
+    // Fungsi animasi angka
+    function animateValue(element, start, end, duration = 300) {
+      if (start === end) {
+        element.textContent = end;
+        return;
+      }
+      const range = end - start;
+      const increment = range > 0 ? 1 : -1;
+      const stepTime = Math.abs(Math.floor(duration / range));
+      let current = start;
+      const timer = setInterval(() => {
+        current += increment;
+        element.textContent = current;
+        if (current === end) {
+          clearInterval(timer);
+        }
+      }, stepTime);
+    }
 
     // Stop session lama & buat baru
     async function createSession() {
@@ -370,6 +392,14 @@
       return m ? { channel: m[1], post: parseInt(m[2]) } : null;
     }
 
+    // Simpan nilai sebelumnya untuk animasi
+    let prevValues = {
+      views: 0,
+      tokenErrors: 0,
+      proxyErrors: 0,
+      threads: 0
+    };
+
     function updateUI(data) {
       const running = data.running;
       if (running) {
@@ -386,10 +416,21 @@
         stopBtn.disabled = true;
       }
 
-      liveViewsEl.textContent = data.success_views ?? data.views ?? 0;
-      tokenErrorsEl.textContent = data.token_errors ?? 0;
-      proxyErrorsEl.textContent = data.proxy_errors ?? 0;
-      activeThreadsEl.textContent = data.active_threads ?? 0;
+      // Gunakan data.views (dari Telegram langsung), bukan success_views
+      const newViews = parseInt(data.views) || 0;
+      const newTokenErrors = parseInt(data.token_errors) || 0;
+      const newProxyErrors = parseInt(data.proxy_errors) || 0;
+      const newThreads = parseInt(data.active_threads) || 0;
+
+      animateValue(liveViewsEl, prevValues.views, newViews);
+      animateValue(tokenErrorsEl, prevValues.tokenErrors, newTokenErrors);
+      animateValue(proxyErrorsEl, prevValues.proxyErrors, newProxyErrors);
+      animateValue(activeThreadsEl, prevValues.threads, newThreads);
+
+      prevValues.views = newViews;
+      prevValues.tokenErrors = newTokenErrors;
+      prevValues.proxyErrors = newProxyErrors;
+      prevValues.threads = newThreads;
     }
 
     async function fetchStatus() {
